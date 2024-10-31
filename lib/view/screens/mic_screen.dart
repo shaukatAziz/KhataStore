@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:avatar_glow/avatar_glow.dart';
+import 'package:khata_store/Routes/routes_name.dart';
+import 'package:khata_store/viewModel/controllers/micController.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../models/customerModel.dart';
 import '../../viewModel/Boxes/box.dart';
-import '../../viewModel/controllers/dashbaord_controller.dart';
 
 class MicScreen extends StatefulWidget {
   final String userId;
@@ -15,12 +16,13 @@ class MicScreen extends StatefulWidget {
 }
 
 class _MicScreenState extends State<MicScreen> {
-  final DashBoardController controller = Get.put(DashBoardController());
+  final MicController controller = Get.put(MicController());
   late stt.SpeechToText _speech;
   bool _isListening = false;
   String _recognizedText = '';
   String? _customerName;
   String? _customerPhone;
+  bool customerAdded = false;
 
   @override
   void initState() {
@@ -46,8 +48,14 @@ class _MicScreenState extends State<MicScreen> {
   void _startListening() async {
     if (!_isListening) {
       print('Starting to listen...');
+      customerAdded = false;
       bool available = await _speech.initialize(
-        onStatus: (status) => print('Status: $status'),
+        onStatus: (status) {
+          print('Status: $status');
+          if (status == 'done') {
+            _stopListening();
+          }
+        },
         onError: (error) => print('Error: $error'),
       );
 
@@ -61,6 +69,8 @@ class _MicScreenState extends State<MicScreen> {
               _extractCustomerDetails();
             });
           },
+          listenFor: Duration(seconds: 50),
+          pauseFor: Duration(seconds: 5),
         );
       } else {
         print('Microphone not available');
@@ -73,23 +83,42 @@ class _MicScreenState extends State<MicScreen> {
     setState(() => _isListening = false);
     _speech.stop();
     print('Stopped listening');
+
+    if (_customerPhone != null && _customerPhone!.length == 11 && RegExp(r'^[0-9]+$').hasMatch(_customerPhone!)) {
+      _addCustomerAutomatically();
+    } else {
+      Get.snackbar("Missing number", 'Phone number is too short or invalid');
+    }
   }
 
   void _extractCustomerDetails() {
     List<String> parts = _recognizedText.split(' ');
-    if (parts.length >= 2) {
+
+    if (parts.length >= 2 && !customerAdded) {
       _customerName = parts[0];
-      _customerPhone = parts[1];
+      _customerPhone = parts.sublist(1).join().trim();
+      print('Raw extracted phone: $_customerPhone');
       print('Extracted Name: $_customerName, Phone: $_customerPhone');
-      _addCustomerAutomatically();
-    } else {
+    } else if (!customerAdded) {
       print('Incomplete details. Please say both name and phone number.');
-      Get.snackbar('Error', 'Please say both name and phone number.');
+    }
+
+    String command = _recognizedText.toLowerCase().trim();
+    if (command.contains('dashboard screen')) {
+      Get.toNamed(RoutesName.homescreen);
+      _resetFields();
+    } else if (command.contains('setting screen')) {
+      Get.toNamed(RoutesName.settingscreen);
+      _resetFields();
+    }
+    else if (command.contains('profile screen')) {
+      Get.off(RoutesName.profilescreen);
+      _resetFields();
     }
   }
 
   void _addCustomerAutomatically() {
-    if (_customerName != null && _customerPhone != null) {
+    if (_customerName != null && _customerPhone != null && !customerAdded) {
       final newCustomer = CustomerModel(
         userId: widget.userId,
         name: _customerName!,
@@ -99,9 +128,9 @@ class _MicScreenState extends State<MicScreen> {
       );
 
       Boxes.getData().add(newCustomer);
+      customerAdded = true;
       print('Customer added: $_customerName - $_customerPhone');
-      Get.snackbar('Success', 'Customer added successfully!',
-          snackPosition: SnackPosition.BOTTOM);
+      Get.snackbar('Success', 'Customer added successfully!', snackPosition: SnackPosition.BOTTOM);
       _resetFields();
     }
   }
@@ -111,24 +140,27 @@ class _MicScreenState extends State<MicScreen> {
       _recognizedText = '';
       _customerName = null;
       _customerPhone = null;
-      _stopListening();
+      customerAdded = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Add Customer by Voice'),
+        title: const Text('Speak'),
         centerTitle: true,
+        backgroundColor: Colors.white,
       ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            const Spacer(),
             const Text(
-              'Press the mic and say the customer\'s name and phone number',
+              'Hold Mic And Speak',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 18),
             ),
@@ -141,17 +173,16 @@ class _MicScreenState extends State<MicScreen> {
                 color: Colors.blue,
               ),
             ),
-            const SizedBox(height: 30),
+            const Spacer(),
             Center(
-              child: AvatarGlow(
-                glowColor: Colors.blue,
-
-
-                duration: const Duration(milliseconds: 2000),
-                repeat: true,
-                animate: _isListening,
-                child: GestureDetector(
-                  onLongPress: _isListening ? _stopListening : _startListening,
+              child: GestureDetector(
+                onLongPressStart: (_) => _startListening(),
+                onLongPressEnd: (_) => _stopListening(),
+                child: AvatarGlow(
+                  glowColor: Colors.blue,
+                  duration: const Duration(milliseconds: 2000),
+                  repeat: true,
+                  animate: _isListening,
                   child: FloatingActionButton(
                     backgroundColor: Colors.blue,
                     onPressed: null,

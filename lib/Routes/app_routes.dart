@@ -4,6 +4,7 @@ import 'package:khata_store/models/amountModel.dart';
 import 'package:khata_store/view/screens/amount_detail.dart';
 import 'package:khata_store/view/screens/dashboar_screen.dart';
 import 'package:khata_store/view/screens/mic_screen.dart';
+import 'package:khata_store/view/screens/profilePage.dart';
 import 'package:khata_store/view/screens/settingPage.dart';
 import 'package:khata_store/view/screens/tab_bar.dart';
 
@@ -17,6 +18,9 @@ class AppRoutes {
   static List<GetPage> myRoutes = [
     GetPage(name: RoutesName.splashscreen, page: () => const SplashScreen()),
     GetPage(name: RoutesName.loginscreen, page: () => LoginScreen()),
+    GetPage(name: RoutesName.profilescreen,
+        page: () => ProfileScreen(userId: 'userId')),
+    
     GetPage(name: RoutesName.homescreen, page: () =>  DashBoardScreen(userId: 'userId',)),
     GetPage(
       name: RoutesName.settingscreen,
